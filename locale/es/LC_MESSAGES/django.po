@@ -1,0 +1,11 @@
+msgid "登录成功"
+msgstr "Inicio de sesión exitoso"
+
+msgid "获取成功"
+msgstr "Obtenido con éxito"
+
+msgid "密码修改成功"
+msgstr "Contraseña modificada con éxito"
+
+msgid "用户已被禁用"
+msgstr "El usuario ha sido deshabilitado" 

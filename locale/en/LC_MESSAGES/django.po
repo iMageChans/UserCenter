@@ -1,0 +1,11 @@
+msgid "登录成功"
+msgstr "Login Successful"
+
+msgid "获取成功"
+msgstr "Retrieved Successfully"
+
+msgid "密码修改成功"
+msgstr "Password Changed Successfully"
+
+msgid "用户已被禁用"
+msgstr "User has been disabled" 

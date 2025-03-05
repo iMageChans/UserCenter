@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    container_name: usercenter_web
+    restart: unless-stopped
+    environment:
+      - DJANGO_SETTINGS_MODULE=UserCenter.settings
+      - DJANGO_ENV=development
+      - PYTHONPATH=/app
+      - DB_NAME=mydb
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_HOST=users.pulseheath.com/pgsql/  # 连接到宿主机上的PostgreSQL
+      - DB_PORT=5432
+      - REDIS_URL=https://users.pulseheath.com/redis/0  # 连接到宿主机上的Redis
+    volumes:
+      - usercenter_static_volume:/app/staticfiles
+      - usercenter_media_volume:/app/media
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py runserver 0.0.0.0:8000"
+    ports:
+      - "${APP_PORT:-8000}:8000"  # 应用端口，可通过环境变量配置
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # 确保容器可以访问宿主机
+
+volumes:
+  usercenter_static_volume:
+    name: usercenter_static_volume
+  usercenter_media_volume:
+    name: usercenter_media_volume
+
+
