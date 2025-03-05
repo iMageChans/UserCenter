@@ -9,12 +9,13 @@ services:
       - DJANGO_SETTINGS_MODULE=UserCenter.settings
       - DJANGO_ENV=development
       - PYTHONPATH=/app
-      - DB_NAME=mydb
-      - DB_USER=postgres
-      - DB_PASSWORD=postgres
-      - DB_HOST=users.pulseheath.com/pgsql/  # 连接到宿主机上的PostgreSQL
-      - DB_PORT=5432
-      - REDIS_URL=https://users.pulseheath.com/redis/0  # 连接到宿主机上的Redis
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=${DB_HOST}  # 连接到宿主机上的PostgreSQL
+      - DB_PORT=${DB_PORT}
+      - REDIS_URL=${DB_USER}  # 连接到宿主机上的Redis
+      - REDIS_PASSWORD==${REDIS_PASSWORD=}
     volumes:
       - usercenter_static_volume:/app/staticfiles
       - usercenter_media_volume:/app/media
