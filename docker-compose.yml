@@ -30,5 +30,3 @@ services:
 volumes:
   usercenter_media_volume:
     name: usercenter_media_volume
-
-

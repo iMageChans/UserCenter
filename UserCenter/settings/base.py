@@ -212,6 +212,8 @@ LOGGING = {
 # 自定义用户模型
 AUTH_USER_MODEL = 'user.User'
 
+FORCE_SCRIPT_NAME = '/users'
+
 # Django AllAuth设置
 AUTHENTICATION_BACKENDS = [
     # Django管理后台登录
