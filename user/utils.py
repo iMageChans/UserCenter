@@ -31,4 +31,4 @@ def datetime_to_timestamp(dt):
     """
     if not dt:
         return None
-    return int(time.mktime(dt.timetuple()) * 1000) 
+    return int(time.mktime(dt.timetuple()))
