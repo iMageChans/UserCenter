@@ -161,21 +161,29 @@ class UserViewSet(viewsets.ModelViewSet):
             
             # 如果设置为付费用户，计算到期时间
             if is_premium:
-                # 根据时长类型计算到期时间
-                now = timezone.now()
+                # 计算要添加的时间
                 if duration_type == 'week':
-                    user.premium_expiry = now + timezone.timedelta(days=7)
+                    duration = timezone.timedelta(days=7)
                 elif duration_type == 'month':
-                    user.premium_expiry = now + timezone.timedelta(days=30)
+                    duration = timezone.timedelta(days=30)
                 elif duration_type == 'quarter':
-                    user.premium_expiry = now + timezone.timedelta(days=90)
+                    duration = timezone.timedelta(days=90)
                 elif duration_type == 'year':
-                    user.premium_expiry = now + timezone.timedelta(days=365)
+                    duration = timezone.timedelta(days=365)
                 else:
                     # 默认一个月
-                    user.premium_expiry = now + timezone.timedelta(days=30)
+                    duration = timezone.timedelta(days=30)
                 
-                logger.info(f"用户 {user.username} (ID: {user.id}) 的付费状态已更新，类型: {duration_type}，到期时间: {user.premium_expiry}")
+                # 检查用户是否已经是付费用户且付费时间未到期
+                now = timezone.now()
+                if user.is_premium and user.premium_expiry and user.premium_expiry > now:
+                    # 如果是，则累加时间
+                    user.premium_expiry = user.premium_expiry + duration
+                    logger.info(f"用户 {user.username} (ID: {user.id}) 的付费时间已累加，类型: {duration_type}，新到期时间: {user.premium_expiry}")
+                else:
+                    # 如果不是，则从当前时间开始计算
+                    user.premium_expiry = now + duration
+                    logger.info(f"用户 {user.username} (ID: {user.id}) 的付费状态已更新，类型: {duration_type}，到期时间: {user.premium_expiry}")
             else:
                 # 如果设置为非付费用户，清除到期时间
                 user.premium_expiry = None
