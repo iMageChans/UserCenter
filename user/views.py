@@ -55,10 +55,20 @@ class UserViewSet(viewsets.ModelViewSet):
         """
         获取当前用户信息
         """
-        serializer = self.get_serializer(request.user)
+        user = request.user
+        
+        # 检查付费状态是否过期
+        if user.is_premium and user.premium_expiry and user.premium_expiry < timezone.now():
+            # 付费已过期，更新用户状态
+            user.is_premium = False
+            user.premium_expiry = None
+            user.save(update_fields=['is_premium', 'premium_expiry'])
+            logger.info(f"用户 {user.username} (ID: {user.id}) 的付费状态已过期并更新")
+        
+        serializer = self.get_serializer(user)
         return Response(api_response(
             code=200,
-            message='获取成功',
+            message=_('获取成功'),
             data=serializer.data
         ))
     
@@ -129,14 +139,14 @@ class UserViewSet(viewsets.ModelViewSet):
         
         参数:
         - is_premium: 布尔值，表示用户是否为付费用户
-        - premium_expiry: 可选，时间戳（毫秒），表示付费到期时间
+        - duration_type: 字符串，付费时长类型，可选值：'week'(周)、'month'(月)、'quarter'(季度)、'year'(年)
         """
         try:
             user = self.get_object()
             
             # 获取请求参数
             is_premium = request.data.get('is_premium')
-            premium_expiry = request.data.get('premium_expiry')
+            duration_type = request.data.get('duration_type', 'month')  # 默认为月
             
             # 验证参数
             if is_premium is None:
@@ -149,24 +159,27 @@ class UserViewSet(viewsets.ModelViewSet):
             # 更新付费状态
             user.is_premium = is_premium
             
-            # 如果提供了到期时间，则更新
-            if premium_expiry:
-                try:
-                    # 将毫秒时间戳转换为 datetime 对象
-                    expiry_datetime = datetime.fromtimestamp(premium_expiry / 1000, tz=pytz.UTC)
-                    user.premium_expiry = expiry_datetime
-                except (ValueError, TypeError):
-                    return Response(api_response(
-                        code=400,
-                        message=_('无效的到期时间格式'),
-                        data=None
-                    ), status=status.HTTP_400_BAD_REQUEST)
-            elif is_premium:
-                # 如果设置为付费用户但没有提供到期时间，默认设置为一年后
-                user.premium_expiry = timezone.now() + timezone.timedelta(days=365)
+            # 如果设置为付费用户，计算到期时间
+            if is_premium:
+                # 根据时长类型计算到期时间
+                now = timezone.now()
+                if duration_type == 'week':
+                    user.premium_expiry = now + timezone.timedelta(days=7)
+                elif duration_type == 'month':
+                    user.premium_expiry = now + timezone.timedelta(days=30)
+                elif duration_type == 'quarter':
+                    user.premium_expiry = now + timezone.timedelta(days=90)
+                elif duration_type == 'year':
+                    user.premium_expiry = now + timezone.timedelta(days=365)
+                else:
+                    # 默认一个月
+                    user.premium_expiry = now + timezone.timedelta(days=30)
+                
+                logger.info(f"用户 {user.username} (ID: {user.id}) 的付费状态已更新，类型: {duration_type}，到期时间: {user.premium_expiry}")
             else:
                 # 如果设置为非付费用户，清除到期时间
                 user.premium_expiry = None
+                logger.info(f"用户 {user.username} (ID: {user.id}) 的付费状态已取消")
             
             # 保存用户
             user.save()
@@ -180,6 +193,7 @@ class UserViewSet(viewsets.ModelViewSet):
             ))
         
         except Exception as e:
+            logger.error(f"更新用户付费状态失败: {str(e)}", exc_info=True)
             return Response(api_response(
                 code=500,
                 message=_('更新用户付费状态失败'),
