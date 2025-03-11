@@ -18,6 +18,10 @@ class User(AbstractUser):
     language = models.CharField(_('语言偏好'), max_length=10, default='zh-hans')
     timezone = models.CharField(_('时区'), max_length=50, default='Asia/Shanghai')
     
+    # 付费用户信息
+    is_premium = models.BooleanField(_('是否付费用户'), default=False)
+    premium_expiry = models.DateTimeField(_('付费到期时间'), null=True, blank=True)
+    
     # 用户统计
     login_count = models.IntegerField(_('登录次数'), default=0)
     last_login_ip = models.GenericIPAddressField(_('最后登录IP'), blank=True, null=True)

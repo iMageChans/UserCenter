@@ -9,20 +9,20 @@ from rest_framework.authtoken.models import Token
 from rest_framework.views import APIView
 from django.conf import settings
 from django.utils import timezone
-from datetime import timedelta
+from datetime import timedelta, datetime
 import requests
 import logging
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAdminUser
 import jwt
-import os
 from django.core.cache import cache
 from django.core.mail import send_mail
 from django.utils.translation import gettext as _
 from .utils import api_response
 from django.contrib.auth.models import UserManager
 from django.utils import translation
+import pytz
 
 from .models import OAuthProvider, UserOAuth
 from .serializers import (
@@ -121,6 +121,70 @@ class UserViewSet(viewsets.ModelViewSet):
             message='获取成功',
             data=data
         ))
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
+    def update_premium_status(self, request, pk=None):
+        """
+        更新用户的付费状态（仅限管理员）
+        
+        参数:
+        - is_premium: 布尔值，表示用户是否为付费用户
+        - premium_expiry: 可选，时间戳（毫秒），表示付费到期时间
+        """
+        try:
+            user = self.get_object()
+            
+            # 获取请求参数
+            is_premium = request.data.get('is_premium')
+            premium_expiry = request.data.get('premium_expiry')
+            
+            # 验证参数
+            if is_premium is None:
+                return Response(api_response(
+                    code=400,
+                    message=_('缺少必要参数: is_premium'),
+                    data=None
+                ), status=status.HTTP_400_BAD_REQUEST)
+            
+            # 更新付费状态
+            user.is_premium = is_premium
+            
+            # 如果提供了到期时间，则更新
+            if premium_expiry:
+                try:
+                    # 将毫秒时间戳转换为 datetime 对象
+                    expiry_datetime = datetime.fromtimestamp(premium_expiry / 1000, tz=pytz.UTC)
+                    user.premium_expiry = expiry_datetime
+                except (ValueError, TypeError):
+                    return Response(api_response(
+                        code=400,
+                        message=_('无效的到期时间格式'),
+                        data=None
+                    ), status=status.HTTP_400_BAD_REQUEST)
+            elif is_premium:
+                # 如果设置为付费用户但没有提供到期时间，默认设置为一年后
+                user.premium_expiry = timezone.now() + timezone.timedelta(days=365)
+            else:
+                # 如果设置为非付费用户，清除到期时间
+                user.premium_expiry = None
+            
+            # 保存用户
+            user.save()
+            
+            # 返回更新后的用户信息
+            serializer = self.get_serializer(user)
+            return Response(api_response(
+                code=200,
+                message=_('用户付费状态更新成功'),
+                data=serializer.data
+            ))
+        
+        except Exception as e:
+            return Response(api_response(
+                code=500,
+                message=_('更新用户付费状态失败'),
+                data={'detail': str(e)}
+            ), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class OAuthProviderViewSet(viewsets.ReadOnlyModelViewSet):
     """

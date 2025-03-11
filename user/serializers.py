@@ -11,19 +11,24 @@ class UserSerializer(serializers.ModelSerializer):
     """
     date_joined = serializers.SerializerMethodField()
     last_login = serializers.SerializerMethodField()
+    premium_expiry = serializers.SerializerMethodField()
     
     class Meta:
         model = User
         fields = ('id', 'username', 'email', 'nickname', 'avatar', 'phone',
                   'is_verified', 'language', 'timezone', 'date_joined',
-                  'last_login')
-        read_only_fields = ('id', 'date_joined', 'last_login', 'is_verified')
+                  'last_login', 'is_premium', 'premium_expiry')
+        read_only_fields = ('id', 'date_joined', 'last_login', 'is_verified', 
+                           'is_premium', 'premium_expiry')
     
     def get_date_joined(self, obj):
         return datetime_to_timestamp(obj.date_joined)
     
     def get_last_login(self, obj):
         return datetime_to_timestamp(obj.last_login)
+        
+    def get_premium_expiry(self, obj):
+        return datetime_to_timestamp(obj.premium_expiry)
 
 class OAuthProviderSerializer(serializers.ModelSerializer):
     """
