@@ -6,13 +6,14 @@ from django.contrib import messages
 
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
-    list_display = ('username', 'email', 'nickname', 'phone', 'is_verified', 'is_staff', 'date_joined')
-    list_filter = ('is_verified', 'is_staff', 'is_superuser', 'date_joined')
+    list_display = ('username', 'email', 'nickname', 'phone', 'is_verified', 'is_staff', 'date_joined', 'is_premium', 'premium_expiry')
+    list_filter = ('is_verified', 'is_staff', 'is_superuser', 'date_joined', 'is_premium')
     search_fields = ('username', 'email', 'nickname', 'phone')
     fieldsets = (
         (None, {'fields': ('username', 'password')}),
         (_('个人信息'), {'fields': ('email', 'nickname', 'avatar', 'phone')}),
-        (_('权限'), {'fields': ('is_active', 'is_verified', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
+        (_('状态信息'), {'fields': ('is_verified', 'is_premium', 'premium_expiry')}),
+        (_('权限'), {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
         (_('设置'), {'fields': ('language', 'timezone')}),
         (_('统计'), {'fields': ('login_count', 'last_login_ip')}),
         (_('重要日期'), {'fields': ('last_login', 'date_joined')}),
