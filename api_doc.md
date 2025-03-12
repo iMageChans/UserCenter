@@ -277,28 +277,306 @@ UserCenter 支持为不同的应用配置不同的第三方登录参数。通过
 }
 ```
 
-## 4. 错误处理
+## 4. 优惠码相关
 
-所有API都使用统一的错误响应格式：
+### 4.1 获取优惠码列表（仅限管理员）
+
+获取系统中的优惠码列表。
+
+- **URL**: `/api/magics/codes/`
+- **方法**: `GET`
+- **认证**: 需要
+- **权限**: 仅限管理员
+- **查询参数**:
+  - `app_id`: 筛选特定应用的优惠码
+  - `status`: 筛选特定状态的优惠码（active, expired, used_up, disabled）
+
+**响应参数**:
 
 ```json
 {
-  "code": 400,  // HTTP状态码
-  "msg": "错误消息",  // 错误描述
-  "data": {  // 详细错误信息，可能包含字段错误等
-    "detail": "详细错误信息",
-    "field_name": ["字段错误信息"]
+  "code": 200,
+  "msg": "获取成功",
+  "data": [
+    {
+      "id": 1,
+      "code": "PREMIUM2023",
+      "app_id": "default",
+      "days": 30,
+      "max_uses": 100,
+      "used_count": 5,
+      "status": "active",
+      "expires_at": 1613412406000,
+      "created_at": 1582790006000,
+      "updated_at": 1582790006000
+    },
+    {
+      "id": 2,
+      "code": "WELCOME50",
+      "app_id": "mobile",
+      "days": 7,
+      "max_uses": 1,
+      "used_count": 0,
+      "status": "active",
+      "expires_at": 1613412406000,
+      "created_at": 1582790006000,
+      "updated_at": 1582790006000
+    }
+  ]
+}
+```
+
+### 4.2 创建优惠码（仅限管理员）
+
+创建新的优惠码。
+
+- **URL**: `/api/magics/codes/`
+- **方法**: `POST`
+- **认证**: 需要
+- **权限**: 仅限管理员
+
+**请求参数**:
+
+```json
+{
+  "app_id": "default",
+  "days": 30,
+  "max_uses": 100,
+  "status": "active",
+  "expires_at": 1613412406000
+}
+```
+
+**响应参数**:
+
+```json
+{
+  "code": 200,
+  "msg": "创建成功",
+  "data": {
+    "id": 3,
+    "code": "AUTO12345",
+    "app_id": "default",
+    "days": 30,
+    "max_uses": 100,
+    "used_count": 0,
+    "status": "active",
+    "expires_at": 1613412406000,
+    "created_at": 1582790006000,
+    "updated_at": 1582790006000
   }
 }
 ```
 
-常见错误码：
+### 4.3 生成单个优惠码（仅限管理员）
 
-- `400`: 请求参数错误
-- `401`: 未认证或认证失败
-- `403`: 权限不足
-- `404`: 资源不存在
-- `500`: 服务器内部错误
+生成单个随机优惠码。
+
+- **URL**: `/api/magics/codes/generate/`
+- **方法**: `POST`
+- **认证**: 需要
+- **权限**: 仅限管理员
+
+**请求参数**:
+
+```json
+{
+  "app_id": "default",
+  "days": 30,
+  "max_uses": 1,
+  "prefix": "PROMO",
+  "expires_days": 90
+}
+```
+
+**响应参数**:
+
+```json
+{
+  "code": 200,
+  "msg": "优惠码生成成功",
+  "data": {
+    "id": 4,
+    "code": "PROMO12345",
+    "app_id": "default",
+    "days": 30,
+    "max_uses": 1,
+    "used_count": 0,
+    "status": "active",
+    "expires_at": 1613412406000,
+    "created_at": 1582790006000,
+    "updated_at": 1582790006000
+  }
+}
+```
+
+### 4.4 批量生成优惠码（仅限管理员）
+
+批量生成随机优惠码。
+
+- **URL**: `/api/magics/codes/batch_generate/`
+- **方法**: `POST`
+- **认证**: 需要
+- **权限**: 仅限管理员
+
+**请求参数**:
+
+```json
+{
+  "app_id": "default",
+  "days": 30,
+  "max_uses": 1,
+  "count": 10,
+  "prefix": "BATCH",
+  "expires_days": 90
+}
+```
+
+**响应参数**:
+
+```json
+{
+  "code": 200,
+  "msg": "批量生成优惠码成功",
+  "data": [
+    {
+      "id": 5,
+      "code": "BATCH1234",
+      "app_id": "default",
+      "days": 30,
+      "max_uses": 1,
+      "used_count": 0,
+      "status": "active",
+      "expires_at": 1613412406000,
+      "created_at": 1582790006000,
+      "updated_at": 1582790006000
+    },
+    // ... 更多优惠码
+  ]
+}
+```
+
+### 4.5 禁用优惠码（仅限管理员）
+
+禁用指定的优惠码。
+
+- **URL**: `/api/magics/codes/{code_id}/disable/`
+- **方法**: `POST`
+- **认证**: 需要
+- **权限**: 仅限管理员
+
+**响应参数**:
+
+```json
+{
+  "code": 200,
+  "msg": "优惠码已禁用",
+  "data": {
+    "id": 1,
+    "code": "PREMIUM2023",
+    "app_id": "default",
+    "days": 30,
+    "max_uses": 100,
+    "used_count": 5,
+    "status": "disabled",
+    "expires_at": 1613412406000,
+    "created_at": 1582790006000,
+    "updated_at": 1582790006000
+  }
+}
+```
+
+### 4.6 获取优惠码使用记录（仅限管理员）
+
+获取指定优惠码的使用记录。
+
+- **URL**: `/api/magics/codes/{code_id}/usage_records/`
+- **方法**: `GET`
+- **认证**: 需要
+- **权限**: 仅限管理员
+
+**响应参数**:
+
+```json
+{
+  "code": 200,
+  "msg": "获取成功",
+  "data": [
+    {
+      "id": 1,
+      "code": "PREMIUM2023",
+      "username": "user1",
+      "used_at": 1582790006000
+    },
+    {
+      "id": 2,
+      "code": "PREMIUM2023",
+      "username": "user2",
+      "used_at": 1582876406000
+    }
+  ]
+}
+```
+
+### 4.7 兑换优惠码（用户接口）
+
+用户兑换优惠码获取会员权益。
+
+- **URL**: `/api/magics/redeem/`
+- **方法**: `POST`
+- **认证**: 需要
+- **权限**: 认证用户
+
+**请求参数**:
+
+```json
+{
+  "code": "PREMIUM2023",
+  "app_id": "default"
+}
+```
+
+**响应参数**:
+
+```json
+{
+  "code": 200,
+  "msg": "优惠码兑换成功，已获得 30 天会员权益",
+  "data": {
+    "days_added": 30,
+    "premium_expiry": 1613412406000
+  }
+}
+```
+
+**可能的错误响应**:
+
+- 优惠码不存在:
+```json
+{
+  "code": 404,
+  "msg": "优惠码不存在",
+  "data": null
+}
+```
+
+- 优惠码已使用:
+```json
+{
+  "code": 400,
+  "msg": "您已经使用过此优惠码",
+  "data": null
+}
+```
+
+- 优惠码无效或已过期:
+```json
+{
+  "code": 400,
+  "msg": "优惠码无效或已过期",
+  "data": null
+}
+```
 
 ## 5. 国际化支持
 

@@ -53,6 +53,7 @@ urlpatterns += i18n_patterns(
     path('accounts/', include('allauth.urls')),
     path('o/', include('oauth2_provider.urls', namespace='oauth2_provider')),
     path('rosetta/', include('rosetta.urls')),
+    path('api/magics/', include('magics.urls')),
     
     # API文档URL
     path('swagger<format>/', schema_view.without_ui(cache_timeout=0), name='schema-json'),

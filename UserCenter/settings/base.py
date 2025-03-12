@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     
     # 自定义应用
     'user.apps.UserConfig',
+    'magics.apps.MagicsConfig',
     'rosetta',  # 翻译管理界面
     'drf_yasg',
 ]
