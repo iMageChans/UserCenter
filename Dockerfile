@@ -47,6 +47,8 @@ RUN pip install --no-cache-dir -i https://mirrors.aliyun.com/pypi/simple/ gunico
 # 复制项目文件
 COPY . .
 
+RUN mkdir -p /app/templates/admin/magics/magiccode/
+
 # 确保 settings 目录被识别为 Python 包
 RUN touch UserCenter/settings/__init__.py
 
