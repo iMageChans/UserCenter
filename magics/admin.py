@@ -78,7 +78,7 @@ class MagicCodeAdmin(admin.ModelAdmin):
                 
                 # 批量创建优惠码
                 created_codes = []
-                for _ in range(count):
+                for i in range(count):
                     code = MagicCode.generate_code(prefix=prefix)
                     magic_code = MagicCode.objects.create(
                         code=code,
