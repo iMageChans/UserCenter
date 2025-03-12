@@ -5,6 +5,7 @@ from django.urls import path
 from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
 from django import forms
+from django.utils.html import format_html
 from .models import MagicCode, MagicCodeUsage
 
 class BatchCreateForm(forms.Form):
@@ -103,6 +104,15 @@ class MagicCodeAdmin(admin.ModelAdmin):
             'has_view_permission': self.has_view_permission(request),
         }
         return TemplateResponse(request, 'admin/magics/magiccode/batch_create.html', context)
+
+    def changelist_view(self, request, extra_context=None):
+        """添加批量创建按钮到列表页面"""
+        extra_context = extra_context or {}
+        extra_context['batch_create_button'] = format_html(
+            '<a href="{}" class="button" style="margin-left: 10px;">批量创建优惠码</a>',
+            'batch-create/'
+        )
+        return super().changelist_view(request, extra_context=extra_context)
 
 @admin.register(MagicCodeUsage)
 class MagicCodeUsageAdmin(admin.ModelAdmin):
