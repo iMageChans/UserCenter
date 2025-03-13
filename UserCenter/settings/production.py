@@ -9,7 +9,8 @@ DEBUG = False
 
 ALLOWED_HOSTS = ['localhost',
                  '127.0.0.1',
-                 'pocket.pulseheath.com']
+                 'pocket.pulseheath.com',
+                 'users-service']
 
 # 数据库设置
 DATABASES = {
