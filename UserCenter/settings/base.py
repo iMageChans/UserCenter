@@ -131,11 +131,11 @@ LOCALE_PATHS = [
 ]
 
 # 静态文件设置
-STATIC_URL = '/static/'
+STATIC_URL = '/static/users-service/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 # 媒体文件配置
-MEDIA_URL = '/media/'
+MEDIA_URL = '/media/users-service/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # REST Framework 设置
