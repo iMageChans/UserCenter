@@ -7,7 +7,9 @@ from .base import *
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost').split(',')
+ALLOWED_HOSTS = ['localhost',
+                 '127.0.0.1',
+                 'users.pulseheath.com']
 
 # 数据库设置
 DATABASES = {
@@ -53,7 +55,7 @@ SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 
 # CORS 设置
-CORS_ALLOWED_ORIGINS = os.environ.get('CORS_ALLOWED_ORIGINS', '').split(',')
+CORS_ALLOW_ALL_ORIGINS = True
 
 # 日志设置
 LOGGING = {

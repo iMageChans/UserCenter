@@ -20,7 +20,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 # 安全设置
 SECRET_KEY = env('SECRET_KEY', default='django-insecure-oi#*_o+3&81=&r&zy+#q3p3^7kc0=mfpd5kmf-p9213ax#%krr')
 DEBUG = env.bool('DEBUG', default=False)
-ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=[])
+ALLOWED_HOSTS = ['localhost',
+                 '127.0.0.1',
+                 'users.pulseheath.com']
 
 # 应用定义
 INSTALLED_APPS = [
@@ -129,12 +131,11 @@ LOCALE_PATHS = [
 ]
 
 # 静态文件设置
-STATIC_URL = env('STATIC_URL', default='/static/')
+STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 
-# 媒体文件设置
-MEDIA_URL = env('MEDIA_URL', default='/media/')
+# 媒体文件配置
+MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # REST Framework 设置

@@ -10,7 +10,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=off \
     PIP_DISABLE_PIP_VERSION_CHECK=on \
     DJANGO_SETTINGS_MODULE=UserCenter.settings \
-    DJANGO_ENV=development \
+    DJANGO_ENV=production \
     PYTHONPATH=/app
 
 # 替换为阿里云的 Debian 镜像源
@@ -32,14 +32,16 @@ RUN echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99no-check-
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     libpq-dev \
+    dnsutils \
+    netcat-openbsd \
     && rm -rf /var/lib/apt/lists/*
 
 # 复制项目依赖文件
-COPY requirements/dev.txt dev.txt
+COPY requirements/prod.txt prod.txt
 COPY requirements/base.txt base.txt
 
 # 更换 pip 源为阿里云镜像并安装项目依赖
-RUN pip install --no-cache-dir -i https://mirrors.aliyun.com/pypi/simple/ -r dev.txt
+RUN pip install --no-cache-dir -i https://mirrors.aliyun.com/pypi/simple/ -r prod.txt
 
 # 显式安装 gunicorn
 RUN pip install --no-cache-dir -i https://mirrors.aliyun.com/pypi/simple/ gunicorn==21.2.0
@@ -56,7 +58,7 @@ RUN touch UserCenter/settings/__init__.py
 RUN python manage.py collectstatic --noinput
 
 # 暴露端口
-EXPOSE 8000
+EXPOSE 8001
 
 # 启动命令
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "UserCenter.wsgi:application"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8001", "UserCenter.wsgi:application"]
