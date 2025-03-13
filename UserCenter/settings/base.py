@@ -257,5 +257,8 @@ SWAGGER_SETTINGS = {
     'DEFAULT_INFO': 'UserCenter.urls.api_info',
 }
 
+LOGIN_URL = '/users/admin/login/'  # 登录页面路径
+LOGIN_REDIRECT_URL = '/users/admin/'  # 登录成功后跳转路径
+
 # 时区设置
 TIME_ZONE = 'Asia/Shanghai' 
