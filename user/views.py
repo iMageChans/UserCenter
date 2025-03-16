@@ -318,7 +318,7 @@ class SocialLoginView(APIView):
             user_data=user_data,
             username=f"wx_{user_data['openid']}",
             email='',  # 微信不提供邮箱
-            nickname=user_data.get('nickname', ''),
+            nickname=user_data.get('nickname', 'username'),
             avatar=user_data.get('headimgurl', '')
         )
     
@@ -404,7 +404,7 @@ class SocialLoginView(APIView):
                 user_data=user_data,
                 username=f"apple_{user_id}",
                 email=email,
-                nickname=user_data.get('name', ''),
+                nickname=user_data.get('name', 'username'),
                 avatar=''  # 苹果不提供头像
             )
         except Exception as e:
