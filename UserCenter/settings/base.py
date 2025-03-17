@@ -22,7 +22,7 @@ SECRET_KEY = env('SECRET_KEY', default='django-insecure-oi#*_o+3&81=&r&zy+#q3p3^
 DEBUG = env.bool('DEBUG', default=False)
 ALLOWED_HOSTS = ['localhost',
                  '127.0.0.1',
-                 'pocket.pulseheath.com',
+                 'pocket.nicebudgeting.com',
                  'users-service']
 
 FORCE_SCRIPT_NAME = '/users'
