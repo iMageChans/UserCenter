@@ -103,4 +103,30 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             is_verified=validated_data.get('is_verified', True)
         )
         
-        return user 
+        return user
+
+
+class UserPremiumStatusSerializer(serializers.ModelSerializer):
+    """用户付费状态更新序列化器"""
+    # 支持两种字段名
+    expires_at = serializers.DateTimeField(required=False, allow_null=True, write_only=True)
+    premium_expiry = serializers.DateTimeField(required=False, allow_null=True)
+
+    class Meta:
+        model = User
+        fields = ['is_premium', 'premium_expiry', 'expires_at']
+
+    def validate(self, data):
+        """验证数据并处理字段映射"""
+        if 'is_premium' not in data:
+            raise serializers.ValidationError({"is_premium": "缺少必要参数"})
+
+        # 将expires_at映射到premium_expiry
+        if 'expires_at' in data:
+            data['premium_expiry'] = data.pop('expires_at')
+
+        # 如果is_premium为False且未提供过期时间，则设置为None
+        if data.get('is_premium') is False and 'premium_expiry' not in data:
+            data['premium_expiry'] = None
+
+        return data

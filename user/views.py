@@ -27,7 +27,7 @@ import pytz
 from .models import OAuthProvider, UserOAuth
 from .serializers import (
     UserSerializer, OAuthProviderSerializer,
-    SocialLoginSerializer, UserRegistrationSerializer
+    SocialLoginSerializer, UserRegistrationSerializer, UserPremiumStatusSerializer
 )
 
 User = get_user_model()
@@ -136,59 +136,55 @@ class UserViewSet(viewsets.ModelViewSet):
     def update_premium_status(self, request, pk=None):
         """
         更新用户的付费状态（仅限管理员）
-        
+
         参数:
         - is_premium: 布尔值，表示用户是否为付费用户
-        - duration_type: 字符串，付费时长类型，可选值：'week'(周)、'month'(月)、'quarter'(季度)、'year'(年)
+        - expires_at 或 premium_expiry: ISO格式的日期字符串，表示付费到期时间
         """
         try:
             user = self.get_object()
-            # 获取请求参数
-            is_premium = request.data.get('is_premium')
-            expires_at = request.data.get('expires_at')
 
-            if expires_at is not None:
-                # 如果是整数或整数字符串
-                if isinstance(expires_at, (int, float)) or (isinstance(expires_at, str) and expires_at.isdigit()):
-                    # 转换为整数
-                    timestamp = int(float(expires_at))
-                    # 转换为datetime对象
-                    expires_datetime = datetime.fromtimestamp(timestamp, tz=timezone.utc)
-                else:
-                    # 如果不是有效的时间戳，设为None
-                    expires_datetime = None
+            # 打印请求数据，用于调试
+            print(f"请求数据: {request.data}")
+
+            # 使用专用序列化器处理请求数据
+            serializer = UserPremiumStatusSerializer(user, data=request.data, partial=True)
+
+            if serializer.is_valid():
+                # 保存前打印验证后的数据，用于调试
+                print(f"验证后的数据: {serializer.validated_data}")
+
+                # 保存更新
+                serializer.save()
+
+                # 返回更新后的用户信息
+                user_serializer = UserSerializer(user)
+                return Response(api_response(
+                    code=200,
+                    message=_('用户付费状态更新成功'),
+                    data=user_serializer.data
+                ))
             else:
-                expires_datetime = None
-            
-            # 验证参数
-            if is_premium is None:
+                # 打印验证错误，用于调试
+                print(f"验证错误: {serializer.errors}")
+
+                # 返回验证错误
                 return Response(api_response(
                     code=400,
-                    message=_('缺少必要参数: is_premium'),
-                    data=None
+                    message=_('参数验证失败'),
+                    data=serializer.errors
                 ), status=status.HTTP_400_BAD_REQUEST)
-            
-            # 更新付费状态
-            user.is_premium = is_premium
-            user.premium_expiry = expires_datetime
-            
-            # 保存用户
-            user.save()
-            
-            # 返回更新后的用户信息
-            serializer = self.get_serializer(user)
-            return Response(api_response(
-                code=200,
-                message=_('用户付费状态更新成功'),
-                data=serializer.data
-            ))
-        
+
         except Exception as e:
-            logger.error(f"更新用户付费状态失败: {str(e)}", exc_info=True)
+            # 记录详细错误
+            import traceback
+            print(f"更新用户付费状态失败: {str(e)}")
+            print(traceback.format_exc())
+
             return Response(api_response(
                 code=500,
-                message=_('更新用户付费状态失败'),
-                data={'detail': str(e)}
+                message=_('更新用户付费状态失败: {}').format(str(e)),
+                data=None
             ), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class OAuthProviderViewSet(viewsets.ReadOnlyModelViewSet):
