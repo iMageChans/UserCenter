@@ -134,28 +134,33 @@ class UserViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
     def update_premium_status(self, request, pk=None):
-        """
-        更新用户的付费状态（仅限管理员）
-
-        参数:
-        - is_premium: 布尔值，表示用户是否为付费用户
-        - expires_at 或 premium_expiry: ISO格式的日期字符串，表示付费到期时间
-        """
         try:
             user = self.get_object()
 
-            # 打印请求数据，用于调试
+            # 打印请求数据和当前用户信息
             print(f"请求数据: {request.data}")
+            print(f"更新前的用户信息: id={user.id}, is_premium={user.is_premium}, premium_expiry={user.premium_expiry}")
 
             # 使用专用序列化器处理请求数据
             serializer = UserPremiumStatusSerializer(user, data=request.data, partial=True)
 
             if serializer.is_valid():
-                # 保存前打印验证后的数据，用于调试
                 print(f"验证后的数据: {serializer.validated_data}")
 
-                # 保存更新
-                serializer.save()
+                # 直接更新用户
+                if 'is_premium' in serializer.validated_data:
+                    user.is_premium = serializer.validated_data['is_premium']
+
+                if 'premium_expiry' in serializer.validated_data:
+                    user.premium_expiry = serializer.validated_data['premium_expiry']
+
+                # 保存用户
+                user.save()
+
+                # 确认更新
+                user.refresh_from_db()
+                print(
+                    f"更新后的用户信息: id={user.id}, is_premium={user.is_premium}, premium_expiry={user.premium_expiry}")
 
                 # 返回更新后的用户信息
                 user_serializer = UserSerializer(user)
@@ -165,10 +170,7 @@ class UserViewSet(viewsets.ModelViewSet):
                     data=user_serializer.data
                 ))
             else:
-                # 打印验证错误，用于调试
                 print(f"验证错误: {serializer.errors}")
-
-                # 返回验证错误
                 return Response(api_response(
                     code=400,
                     message=_('参数验证失败'),
@@ -176,7 +178,6 @@ class UserViewSet(viewsets.ModelViewSet):
                 ), status=status.HTTP_400_BAD_REQUEST)
 
         except Exception as e:
-            # 记录详细错误
             import traceback
             print(f"更新用户付费状态失败: {str(e)}")
             print(traceback.format_exc())

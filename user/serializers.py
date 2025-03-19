@@ -108,13 +108,13 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
 class UserPremiumStatusSerializer(serializers.ModelSerializer):
     """用户付费状态更新序列化器"""
-    # 支持两种字段名
+    user_id = serializers.IntegerField(write_only=True, required=False)
     expires_at = serializers.DateTimeField(required=False, allow_null=True, write_only=True)
     premium_expiry = serializers.DateTimeField(required=False, allow_null=True)
 
     class Meta:
         model = User
-        fields = ['is_premium', 'premium_expiry', 'expires_at']
+        fields = ['user_id', 'is_premium', 'premium_expiry', 'expires_at']
 
     def validate(self, data):
         """验证数据并处理字段映射"""
@@ -125,8 +125,8 @@ class UserPremiumStatusSerializer(serializers.ModelSerializer):
         if 'expires_at' in data:
             data['premium_expiry'] = data.pop('expires_at')
 
-        # 如果is_premium为False且未提供过期时间，则设置为None
-        if data.get('is_premium') is False and 'premium_expiry' not in data:
-            data['premium_expiry'] = None
+        # 移除user_id字段，因为它不是模型的一部分
+        if 'user_id' in data:
+            data.pop('user_id')
 
         return data
