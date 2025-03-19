@@ -123,6 +123,8 @@ class UserPremiumStatusSerializer(serializers.ModelSerializer):
 
         # 将expires_at映射到premium_expiry
         if 'expires_at' in data:
+            print(f"expires_at: {data['expires_at']}")
+            print(f"expires_at pop: {data.pop('expires_at')}")
             data['premium_expiry'] = data.pop('expires_at')
 
         # 移除user_id字段，因为它不是模型的一部分
