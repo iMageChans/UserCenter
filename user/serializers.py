@@ -106,29 +106,11 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         return user
 
 
-class UserPremiumStatusSerializer(serializers.ModelSerializer):
+class UserPremiumStatusSerializer(serializers.Serializer):
     """用户付费状态更新序列化器"""
     user_id = serializers.IntegerField(write_only=True, required=False)
+    is_premium = serializers.BooleanField(required=False)
     expires_at = serializers.DateTimeField(required=False, allow_null=True, write_only=True)
-    premium_expiry = serializers.DateTimeField(required=False, allow_null=True)
 
     class Meta:
-        model = User
-        fields = ['user_id', 'is_premium', 'premium_expiry', 'expires_at']
-
-    def validate(self, data):
-        """验证数据并处理字段映射"""
-        if 'is_premium' not in data:
-            raise serializers.ValidationError({"is_premium": "缺少必要参数"})
-
-        # 将expires_at映射到premium_expiry
-        if 'expires_at' in data:
-            print(f"expires_at: {data['expires_at']}")
-            print(f"expires_at pop: {data.pop('expires_at')}")
-            data['premium_expiry'] = data.pop('expires_at')
-
-        # 移除user_id字段，因为它不是模型的一部分
-        if 'user_id' in data:
-            data.pop('user_id')
-
-        return data
+        fields = ['user_id', 'is_premium', 'expires_at']

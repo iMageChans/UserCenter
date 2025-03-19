@@ -142,7 +142,7 @@ class UserViewSet(viewsets.ModelViewSet):
             print(f"更新前的用户信息: id={user.id}, is_premium={user.is_premium}, premium_expiry={user.premium_expiry}")
 
             # 使用专用序列化器处理请求数据
-            serializer = UserPremiumStatusSerializer(user, data=request.data, partial=True)
+            serializer = UserPremiumStatusSerializer(data=request.data, partial=True)
 
             if serializer.is_valid():
                 print(f"验证后的数据: {serializer.validated_data}")
