@@ -103,4 +103,14 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             is_verified=validated_data.get('is_verified', True)
         )
         
-        return user 
+        return user
+
+
+class UserPremiumStatusSerializer(serializers.Serializer):
+    """用户付费状态更新序列化器"""
+    user_id = serializers.IntegerField(write_only=True, required=False)
+    is_premium = serializers.BooleanField(required=False)
+    expires_at = serializers.DateTimeField(required=False, allow_null=True, write_only=True)
+
+    class Meta:
+        fields = ['user_id', 'is_premium', 'expires_at']
