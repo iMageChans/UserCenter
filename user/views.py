@@ -145,7 +145,20 @@ class UserViewSet(viewsets.ModelViewSet):
             user = self.get_object()
             # 获取请求参数
             is_premium = request.data.get('is_premium')
-            expires_at = request.data.get('expires_at')  # 默认为月
+            expires_at = request.data.get('expires_at')
+
+            if expires_at is not None:
+                # 如果是整数或整数字符串
+                if isinstance(expires_at, (int, float)) or (isinstance(expires_at, str) and expires_at.isdigit()):
+                    # 转换为整数
+                    timestamp = int(float(expires_at))
+                    # 转换为datetime对象
+                    expires_datetime = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+                else:
+                    # 如果不是有效的时间戳，设为None
+                    expires_datetime = None
+            else:
+                expires_datetime = None
             
             # 验证参数
             if is_premium is None:
@@ -157,7 +170,7 @@ class UserViewSet(viewsets.ModelViewSet):
             
             # 更新付费状态
             user.is_premium = is_premium
-            user.premium_expiry = expires_at
+            user.premium_expiry = expires_datetime
             
             # 保存用户
             user.save()
