@@ -25,18 +25,18 @@ DATABASES = {
     }
 }
 
-# 如果提供了 PostgreSQL 配置，则使用 PostgreSQL
-if os.environ.get('DB_NAME'):
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': os.environ.get('DB_NAME'),
-            'USER': os.environ.get('DB_USER'),
-            'PASSWORD': os.environ.get('DB_PASSWORD'),
-            'HOST': os.environ.get('DB_HOST', 'localhost'),
-            'PORT': os.environ.get('DB_PORT', '5432'),
-        }
-    }
+# # 如果提供了 PostgreSQL 配置，则使用 PostgreSQL
+# if os.environ.get('DB_NAME'):
+#     DATABASES = {
+#         'default': {
+#             'ENGINE': 'django.db.backends.postgresql',
+#             'NAME': os.environ.get('DB_NAME'),
+#             'USER': os.environ.get('DB_USER'),
+#             'PASSWORD': os.environ.get('DB_PASSWORD'),
+#             'HOST': os.environ.get('DB_HOST', 'localhost'),
+#             'PORT': os.environ.get('DB_PORT', '5432'),
+#         }
+#     }
 
 # 缓存设置
 CACHES = {
