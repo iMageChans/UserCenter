@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     # 自定义应用
     'user.apps.UserConfig',
     'magics.apps.MagicsConfig',
+    'voice_hub.apps.VoiceHubConfig',
     'rosetta',  # 翻译管理界面
     'drf_yasg',
 ]
