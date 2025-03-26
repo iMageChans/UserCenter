@@ -41,6 +41,9 @@ class UserViewSet(viewsets.ModelViewSet):
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
     
+    def destroy(self, request, *args, **kwargs):
+        pass
+    
     def get_queryset(self):
         """
         限制普通用户只能查看自己的信息
@@ -185,6 +188,64 @@ class UserViewSet(viewsets.ModelViewSet):
             return Response(api_response(
                 code=500,
                 message=_('更新用户付费状态失败: {}').format(str(e)),
+                data=None
+            ), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['post'])
+    def logout(self, request):
+        """
+        用户注销
+        删除当前用户的认证令牌
+        """
+        try:
+            # 删除用户的认证令牌
+            request.user.auth_token.delete()
+            
+            return Response(api_response(
+                code=200,
+                message=_('注销成功'),
+                data=None
+            ))
+        except Exception as e:
+            logger.exception("用户注销失败")
+            return Response(api_response(
+                code=500,
+                message=_('注销失败: {}').format(str(e)),
+                data=None
+            ), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    @action(detail=False, methods=['post'])
+    def delete_account(self, request):
+        """
+        彻底删除用户账号
+        只能由用户本人或管理员操作
+        """
+        try:
+            # 获取用户
+            user = request.user
+            
+            # 删除用户的认证令牌
+            Token.objects.filter(user=user).delete()
+            
+            # 删除用户的OAuth关联
+            UserOAuth.objects.filter(user=user).delete()
+            
+            # 记录用户删除操作
+            logger.info(f"用户 {user.username} (ID: {user.id}) 已请求删除账号")
+            
+            # 删除用户
+            user.delete()
+            
+            return Response(api_response(
+                code=200,
+                message=_('账号已成功删除'),
+                data=None
+            ))
+        except Exception as e:
+            logger.exception("删除用户账号失败")
+            return Response(api_response(
+                code=500,
+                message=_('删除账号失败: {}').format(str(e)),
                 data=None
             ), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
