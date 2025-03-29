@@ -167,7 +167,7 @@ def redeem_code(request):
         # 检查用户是否已经使用过此优惠码
         if MagicCodeUsage.objects.filter(code=magic_code, user=request.user).exists():
             return Response(api_response(
-                code=401,
+                code=405,
                 message=_('您已经使用过此优惠码'),
                 data=None
             ), status=status.HTTP_400_BAD_REQUEST)
