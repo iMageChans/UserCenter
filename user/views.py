@@ -193,7 +193,16 @@ class UserViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
     def update_premium_status(self, request, pk=None):
         try:
-            user = self.get_object()
+            # 直接查询用户，避免使用 get_object() 可能引入的过滤
+            try:
+                user = User.objects.get(pk=pk)
+            except User.DoesNotExist:
+                return Response(api_response(
+                    code=404,
+                    message=_('用户不存在'),
+                    data=None
+                ), status=status.HTTP_404_NOT_FOUND)
+            
             current_time = timezone.now()
 
             # 打印请求数据和当前用户信息
