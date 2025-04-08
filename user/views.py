@@ -194,6 +194,7 @@ class UserViewSet(viewsets.ModelViewSet):
     def update_premium_status(self, request, pk=None):
         try:
             user = self.get_object()
+            current_time = timezone.now()
 
             # 打印请求数据和当前用户信息
             print(f"请求数据: {request.data}")
@@ -205,12 +206,36 @@ class UserViewSet(viewsets.ModelViewSet):
             if serializer.is_valid():
                 print(f"验证后的数据: {serializer.validated_data}")
 
-                # 直接更新用户
-                if 'is_premium' in serializer.validated_data:
-                    user.is_premium = serializer.validated_data['is_premium']
-
+                # 检查premium_expiry和is_premium的关系
                 if 'premium_expiry' in serializer.validated_data:
-                    user.premium_expiry = serializer.validated_data['premium_expiry']
+                    expiry_date = serializer.validated_data['premium_expiry']
+                    
+                    if expiry_date is not None:
+                        # 检查过期时间是否在当前时间之后
+                        if expiry_date > current_time:
+                            user.is_premium = True
+                        else:
+                            # 如果过期时间已经过了，设置为非会员
+                            user.is_premium = False
+                        user.premium_expiry = expiry_date
+                    else:
+                        # 如果过期时间为None，根据请求中的is_premium决定
+                        user.premium_expiry = None
+                        if 'is_premium' in serializer.validated_data:
+                            user.is_premium = serializer.validated_data['is_premium']
+                        else:
+                            user.is_premium = False
+                elif 'is_premium' in serializer.validated_data:
+                    # 如果只更新is_premium
+                    user.is_premium = serializer.validated_data['is_premium']
+                    # 如果设置为非会员，清除过期时间
+                    if not user.is_premium:
+                        user.premium_expiry = None
+                    # 如果设置为会员但没有过期时间，检查现有过期时间是否有效
+                    elif user.premium_expiry is not None and user.premium_expiry <= current_time:
+                        # 如果现有过期时间已过期，则清除
+                        user.premium_expiry = None
+                        user.is_premium = False
 
                 # 保存用户
                 user.save()
