@@ -6,7 +6,7 @@ from django.contrib import messages
 
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
-    list_display = ('username', 'email', 'nickname', 'phone', 'is_verified', 'is_staff', 'date_joined', 'is_premium', 'premium_expiry')
+    list_display = ('id', 'username', 'email', 'nickname', 'phone', 'is_verified', 'is_staff', 'date_joined', 'is_premium', 'premium_expiry')
     list_filter = ('is_verified', 'is_staff', 'is_superuser', 'date_joined', 'is_premium')
     search_fields = ('username', 'email', 'nickname', 'phone')
     fieldsets = (
