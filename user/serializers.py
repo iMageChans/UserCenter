@@ -76,17 +76,17 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     def validate(self, data):
         # 验证两次密码是否一致
         if data.get('password') != data.get('confirm_password'):
-            raise serializers.ValidationError(_("两次输入的密码不一致"))
+            raise serializers.ValidationError("两次输入的密码不一致")
         
         # 验证邮箱是否已被使用
         email = data.get('email')
         if email and User.objects.filter(email=email).exists():
-            raise serializers.ValidationError(_("该邮箱已被注册"))
+            raise serializers.ValidationError("该邮箱已被注册")
         
         # 验证用户名是否已被使用
         username = data.get('username')
         if username and User.objects.filter(username=username).exists():
-            raise serializers.ValidationError(_("该用户名已被使用"))
+            raise serializers.ValidationError("该用户名已被使用")
         
         return data
     
