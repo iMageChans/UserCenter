@@ -5,6 +5,7 @@ from . import views
 router = DefaultRouter()
 router.register(r'users', views.UserViewSet)
 router.register(r'oauth-providers', views.OAuthProviderViewSet)
+router.register(r'anonymous', views.AnonymousUserViewSet, basename='anonymous')
 
 urlpatterns = [
     path('', include(router.urls)),
