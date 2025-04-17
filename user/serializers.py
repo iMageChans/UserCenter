@@ -15,11 +15,13 @@ class UserSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = User
-        fields = ('id', 'username', 'email', 'nickname', 'avatar', 'phone',
-                  'is_verified', 'language', 'timezone', 'date_joined',
-                  'last_login', 'is_premium', 'premium_expiry')
-        read_only_fields = ('id', 'date_joined', 'last_login', 'is_verified', 
-                           'is_premium', 'premium_expiry')
+        fields = [
+            'id', 'username', 'email', 'nickname', 'avatar', 
+            'is_verified', 'is_premium', 'premium_expiry', 
+            'language', 'timezone', 'is_anonymous_user',  # 添加匿名用户标识
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'is_verified', 'is_premium', 'premium_expiry', 'created_at', 'updated_at']
     
     def get_date_joined(self, obj):
         return datetime_to_timestamp(obj.date_joined)
@@ -114,3 +116,29 @@ class UserPremiumStatusSerializer(serializers.Serializer):
 
     class Meta:
         fields = ['user_id', 'is_premium', 'expires_at']
+
+class AnonymousUserConversionSerializer(serializers.Serializer):
+    username = serializers.CharField(max_length=150, required=False)
+    email = serializers.EmailField(required=False)
+    password = serializers.CharField(write_only=True, required=False)
+    provider = serializers.CharField(required=False)
+    code = serializers.CharField(required=False)
+    redirect_uri = serializers.URLField(required=False)
+    app_id = serializers.CharField(required=False, default='default')
+    
+    def validate(self, data):
+        """
+        验证转换方式：用户名密码或第三方登录
+        """
+        # 检查是否提供了用户名密码
+        has_username_password = 'username' in data and 'password' in data
+        
+        # 检查是否提供了第三方登录信息
+        has_oauth = 'provider' in data and 'code' in data
+        
+        if not has_username_password and not has_oauth:
+            raise serializers.ValidationError(
+                "必须提供用户名和密码，或者第三方登录信息"
+            )
+            
+        return data

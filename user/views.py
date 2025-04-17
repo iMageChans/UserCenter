@@ -1,5 +1,7 @@
 import json
 import time
+import uuid
+from django.utils.crypto import get_random_string
 
 from django.contrib.auth import get_user_model, authenticate
 from rest_framework import viewsets, permissions, status
@@ -27,7 +29,8 @@ import pytz
 from .models import OAuthProvider, UserOAuth
 from .serializers import (
     UserSerializer, OAuthProviderSerializer,
-    SocialLoginSerializer, UserRegistrationSerializer, UserPremiumStatusSerializer
+    SocialLoginSerializer, UserRegistrationSerializer, UserPremiumStatusSerializer,
+    AnonymousUserConversionSerializer
 )
 
 User = get_user_model()
@@ -879,3 +882,289 @@ def set_language(request):
         message=_('语言设置成功'),
         data={'language': language}
     ))
+
+class AnonymousUserViewSet(viewsets.ViewSet):
+    """
+    匿名用户视图集
+    提供匿名登录和转正功能
+    """
+    permission_classes = [permissions.AllowAny]
+    
+    @action(detail=False, methods=['post'])
+    def login(self, request):
+        """
+        匿名登录
+        为未注册用户创建临时账号
+        """
+        try:
+            # 生成唯一用户名
+            username = f"anon_{uuid.uuid4().hex[:12]}"
+            
+            # 生成随机密码
+            password = get_random_string(16)
+            
+            # 创建匿名用户
+            user = User.objects.create_user(
+                username=username,
+                password=password,
+                is_anonymous_user=True,
+                nickname="匿名用户",
+            )
+            
+            # 创建认证令牌
+            token, created = Token.objects.get_or_create(user=user)
+            
+            # 记录登录信息
+            user.login_count = 1
+            user.last_login = timezone.now()
+            
+            # 记录IP地址
+            x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+            if x_forwarded_for:
+                user.last_login_ip = x_forwarded_for.split(',')[0]
+            else:
+                user.last_login_ip = request.META.get('REMOTE_ADDR')
+            
+            user.save()
+            
+            # 返回用户信息和令牌
+            return Response(api_response(
+                code=200,
+                message=_('匿名登录成功'),
+                data={
+                    'token': token.key,
+                    'user': UserSerializer(user).data
+                }
+            ))
+        except Exception as e:
+            logger.exception("匿名登录失败")
+            return Response(api_response(
+                code=500,
+                message=_('匿名登录失败: {}').format(str(e)),
+                data=None
+            ), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    @action(detail=False, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def convert(self, request):
+        """
+        将匿名用户转换为正式用户
+        支持两种方式：
+        1. 用户名密码注册
+        2. 第三方账号绑定
+        """
+        user = request.user
+        
+        # 检查是否为匿名用户
+        if not hasattr(user, 'is_anonymous_user') or not user.is_anonymous_user:
+            return Response(api_response(
+                code=400,
+                message=_('只有匿名用户可以转换为正式用户'),
+                data=None
+            ), status=status.HTTP_400_BAD_REQUEST)
+        
+        # 验证请求数据
+        serializer = AnonymousUserConversionSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(api_response(
+                code=400,
+                message=_('参数验证失败'),
+                data=serializer.errors
+            ), status=status.HTTP_400_BAD_REQUEST)
+        
+        # 获取验证后的数据
+        validated_data = serializer.validated_data
+        
+        # 判断转换方式
+        if 'username' in validated_data and 'password' in validated_data:
+            # 用户名密码方式
+            return self._convert_with_username_password(user, validated_data)
+        else:
+            # 第三方账号方式
+            return self._convert_with_oauth(user, request, validated_data)
+    
+    def _convert_with_username_password(self, user, data):
+        """使用用户名密码转换匿名用户"""
+        username = data.get('username')
+        email = data.get('email')
+        password = data.get('password')
+        
+        # 检查用户名是否已存在
+        if User.objects.filter(username=username).exclude(id=user.id).exists():
+            return Response(api_response(
+                code=400,
+                message=_('用户名已被使用'),
+                data=None
+            ), status=status.HTTP_400_BAD_REQUEST)
+        
+        # 检查邮箱是否已存在
+        if email and User.objects.filter(email=email).exclude(id=user.id).exists():
+            return Response(api_response(
+                code=400,
+                message=_('邮箱已被使用'),
+                data=None
+            ), status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            # 更新用户信息
+            user.username = username
+            user.email = email if email else user.email
+            user.set_password(password)
+            user.is_anonymous_user = False
+            user.save()
+            
+            # 重新生成令牌
+            user.auth_token.delete()
+            token, created = Token.objects.get_or_create(user=user)
+            
+            return Response(api_response(
+                code=200,
+                message=_('账号转换成功'),
+                data={
+                    'token': token.key,
+                    'user': UserSerializer(user).data
+                }
+            ))
+        except Exception as e:
+            logger.exception("匿名用户转换失败")
+            return Response(api_response(
+                code=500,
+                message=_('账号转换失败: {}').format(str(e)),
+                data=None
+            ), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    def _convert_with_oauth(self, user, request, data):
+        """使用第三方账号转换匿名用户"""
+        provider_name = data.get('provider')
+        code = data.get('code')
+        redirect_uri = data.get('redirect_uri')
+        app_id = data.get('app_id', 'default')
+        
+        try:
+            # 根据 provider_name 和 app_id 查找提供商配置
+            provider = OAuthProvider.objects.get(name=provider_name, app_id=app_id, is_active=True)
+        except OAuthProvider.DoesNotExist:
+            # 如果找不到特定应用的配置，尝试查找默认配置
+            try:
+                provider = OAuthProvider.objects.get(name=provider_name, app_id='default', is_active=True)
+            except OAuthProvider.DoesNotExist:
+                return Response(api_response(
+                    code=400,
+                    message=f'不支持的登录方式: {provider_name} (app_id: {app_id})',
+                    data=None
+                ), status=status.HTTP_400_BAD_REQUEST)
+        
+        # 创建社交登录视图实例
+        social_login_view = SocialLoginView()
+        social_login_view.request = request
+        
+        # 根据不同的提供商处理OAuth流程
+        handler_method = getattr(social_login_view, f'handle_{provider_name}_login', None)
+        if not handler_method:
+            return Response(api_response(
+                code=501,
+                message=f'未实现的登录方式: {provider_name}',
+                data=None
+            ), status=status.HTTP_501_NOT_IMPLEMENTED)
+        
+        try:
+            # 获取OAuth用户信息
+            oauth_response = handler_method(provider, code, redirect_uri)
+            
+            # 检查是否成功
+            if oauth_response.status_code != 200:
+                return oauth_response
+            
+            # 获取OAuth用户
+            oauth_data = oauth_response.data.get('data', {})
+            oauth_user = oauth_data.get('user', {})
+            oauth_token = oauth_data.get('token')
+            
+            if not oauth_user or not oauth_token:
+                return Response(api_response(
+                    code=400,
+                    message=_('获取第三方账号信息失败'),
+                    data=None
+                ), status=status.HTTP_400_BAD_REQUEST)
+            
+            # 检查OAuth用户是否已存在
+            oauth_user_id = oauth_user.get('id')
+            if oauth_user_id and oauth_user_id != user.id:
+                # 如果OAuth用户已存在且不是当前用户，则合并账号
+                try:
+                    oauth_user_obj = User.objects.get(id=oauth_user_id)
+                    
+                    # 将匿名用户的数据转移到OAuth用户
+                    # 这里可以添加数据迁移逻辑，如转移用户创建的内容等
+                    
+                    # 删除匿名用户
+                    user.delete()
+                    
+                    # 返回OAuth用户的信息
+                    return Response(api_response(
+                        code=200,
+                        message=_('账号已合并'),
+                        data={
+                            'token': oauth_token,
+                            'user': UserSerializer(oauth_user_obj).data
+                        }
+                    ))
+                except User.DoesNotExist:
+                    pass
+            
+            # 更新匿名用户信息
+            user.is_anonymous_user = False
+            
+            # 如果OAuth返回了用户名，尝试更新
+            if 'username' in oauth_user and oauth_user['username']:
+                # 检查用户名是否已存在
+                new_username = oauth_user['username']
+                if not User.objects.filter(username=new_username).exclude(id=user.id).exists():
+                    user.username = new_username
+            
+            # 如果OAuth返回了邮箱，尝试更新
+            if 'email' in oauth_user and oauth_user['email']:
+                # 检查邮箱是否已存在
+                new_email = oauth_user['email']
+                if not User.objects.filter(email=new_email).exclude(id=user.id).exists():
+                    user.email = new_email
+            
+            # 更新其他信息
+            if 'nickname' in oauth_user and oauth_user['nickname']:
+                user.nickname = oauth_user['nickname']
+            
+            if 'avatar' in oauth_user and oauth_user['avatar']:
+                user.avatar = oauth_user['avatar']
+            
+            user.is_verified = True  # 第三方登录视为已验证
+            user.save()
+            
+            # 创建OAuth关联
+            UserOAuth.objects.create(
+                user=user,
+                provider=provider,
+                provider_user_id=oauth_user.get('provider_user_id', ''),
+                access_token=oauth_token,
+                refresh_token='',
+                expires_at=None,
+                raw_data=oauth_user
+            )
+            
+            # 重新生成令牌
+            user.auth_token.delete()
+            token, created = Token.objects.get_or_create(user=user)
+            
+            return Response(api_response(
+                code=200,
+                message=_('账号转换成功'),
+                data={
+                    'token': token.key,
+                    'user': UserSerializer(user).data
+                }
+            ))
+        except Exception as e:
+            logger.exception("匿名用户转换失败")
+            return Response(api_response(
+                code=500,
+                message=_('账号转换失败: {}').format(str(e)),
+                data=None
+            ), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
