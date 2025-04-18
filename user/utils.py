@@ -20,15 +20,7 @@ def api_response(code=200, message="成功", data=None):
     }
 
 def datetime_to_timestamp(dt):
-    """
-    将datetime对象转换为时间戳（毫秒）
-    
-    Args:
-        dt: datetime对象
-    
-    Returns:
-        int: 时间戳（毫秒）
-    """
-    if not dt:
+    """将 datetime 对象转换为毫秒级时间戳"""
+    if dt is None:
         return None
-    return int(time.mktime(dt.timetuple()))
+    return int(dt.timestamp() * 1000)

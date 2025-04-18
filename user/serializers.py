@@ -20,7 +20,7 @@ class UserSerializer(serializers.ModelSerializer):
             'id', 'username', 'email', 'nickname', 'avatar',
             'is_verified', 'is_premium', 'premium_expiry',
             'language', 'timezone', 'is_anonymous_user',  # 添加匿名用户标识
-            'created_at', 'updated_at'
+            'created_at', 'updated_at', 'date_joined', 'last_login'  # 添加缺少的字段
         ]
         read_only_fields = ['id', 'is_verified', 'is_premium', 'premium_expiry', 'created_at', 'updated_at']
 
