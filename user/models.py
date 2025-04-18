@@ -29,6 +29,10 @@ class User(AbstractUser):
     # 元数据
     created_at = models.DateTimeField(_('创建时间'), auto_now_add=True)
     updated_at = models.DateTimeField(_('更新时间'), auto_now=True)
+
+
+    # 匿名用户标识
+    is_anonymous_user = models.BooleanField(default=False, verbose_name=_('是否为匿名用户'))
     
     class Meta:
         verbose_name = _('用户')
