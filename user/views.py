@@ -908,7 +908,7 @@ class AnonymousUserViewSet(viewsets.ViewSet):
                 username=username,
                 password=password,
                 is_anonymous_user=True,
-                nickname="匿名用户",
+                nickname="username",
             )
             
             # 创建认证令牌
