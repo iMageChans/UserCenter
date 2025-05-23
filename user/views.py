@@ -399,20 +399,33 @@ class SocialLoginView(APIView):
     
     def handle_apple_login(self, provider, code, redirect_uri=None):
         """处理苹果登录"""
-        request = self.request  # 从类实例获取 request
+        import sys
+        import traceback
         
-        # 直接输出到控制台，确保可以看到
-        print(f"========= Apple login attempt =========")
-        print(f"Code: {code[:10]}... (truncated)")
-        print(f"Redirect URI: {redirect_uri}")
-        print(f"Request data: {request.data}")
+        # 直接使用sys.stdout确保输出
+        sys.stdout.write(f"========= Apple login attempt =========\n")
+        sys.stdout.write(f"Code: {code[:10]}... (truncated)\n")
+        sys.stdout.write(f"Redirect URI: {redirect_uri}\n")
+        sys.stdout.flush()
         
         # 获取访问令牌
         token_url = 'https://appleid.apple.com/auth/token'
         
         # 使用数据库中的配置
         client_id = provider.client_id
-        client_secret = self._generate_apple_client_secret(provider)
+        
+        try:
+            client_secret = self._generate_apple_client_secret(provider)
+            sys.stdout.write(f"客户端密钥生成成功\n")
+        except Exception as e:
+            sys.stdout.write(f"生成客户端密钥失败: {str(e)}\n")
+            sys.stdout.write(traceback.format_exc())
+            sys.stdout.flush()
+            return Response(api_response(
+                code=500,
+                message=f'生成苹果客户端密钥失败: {str(e)}',
+                data=None
+            ), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
         # 获取重定向URI
         redirect_uri = redirect_uri or provider.redirect_uri
@@ -425,28 +438,38 @@ class SocialLoginView(APIView):
             'redirect_uri': redirect_uri
         }
         
-        print(f"Token request data: {token_data}")
-        print(f"Client ID: {client_id}")
-        print(f"Redirect URI used: {redirect_uri}")
+        sys.stdout.write(f"Client ID: {client_id}\n")
+        sys.stdout.write(f"Redirect URI used: {redirect_uri}\n")
+        sys.stdout.flush()
         
         try:
-            # 发送请求前的日志
-            print(f"正在发送请求到Apple授权服务器...")
+            sys.stdout.write(f"正在发送请求到Apple授权服务器...\n")
+            sys.stdout.flush()
             
-            token_response = requests.post(token_url, data=token_data)
+            # 设置超时和额外的headers
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (compatible; YourApp/1.0)',
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
             
-            # 记录响应
-            print(f"Apple response status: {token_response.status_code}")
-            print(f"Apple response headers: {token_response.headers}")
-            print(f"Apple response content: {token_response.text}")
+            token_response = requests.post(
+                token_url, 
+                data=token_data, 
+                headers=headers,
+                timeout=30
+            )
+            
+            sys.stdout.write(f"Apple response status: {token_response.status_code}\n")
+            sys.stdout.write(f"Apple response content: {token_response.text[:1000]}\n")
+            sys.stdout.flush()
             
             # 尝试解析JSON响应
             try:
                 token_result = token_response.json()
-                print(f"Parsed JSON response: {token_result}")
             except json.JSONDecodeError as e:
-                print(f"JSON解析失败: {str(e)}")
-                print(f"原始响应内容: {token_response.text}")
+                sys.stdout.write(f"JSON解析失败: {str(e)}\n")
+                sys.stdout.write(f"原始响应内容: {token_response.text}\n")
+                sys.stdout.flush()
                 return Response(api_response(
                     code=400,
                     message=f'苹果授权响应解析失败: {str(e)}',
@@ -455,7 +478,8 @@ class SocialLoginView(APIView):
             
             if 'error' in token_result:
                 error_msg = f"苹果授权失败: {token_result.get('error_description', token_result['error'])}"
-                print(f"ERROR: {error_msg}")
+                sys.stdout.write(f"ERROR: {error_msg}\n")
+                sys.stdout.flush()
                 return Response(api_response(
                     code=400,
                     message=error_msg,
@@ -465,22 +489,52 @@ class SocialLoginView(APIView):
             # 解析ID令牌以获取用户信息
             id_token = token_result.get('id_token')
             if not id_token:
-                print("错误: 未获取到ID令牌")
+                sys.stdout.write("错误: 未获取到ID令牌\n")
+                sys.stdout.flush()
                 return Response(api_response(
                     code=400,
                     message='苹果登录失败: 未获取到ID令牌',
                     data=None
                 ), status=status.HTTP_400_BAD_REQUEST)
             
-            # 解码JWT但不验证签名
-            print(f"正在解析ID令牌...")
-            jwt_payload = jwt.decode(id_token, options={"verify_signature": False})
-            print(f"JWT解析结果: {jwt_payload}")
+            # 尝试不同的方式解码JWT
+            sys.stdout.write(f"正在解析ID令牌...\n")
+            sys.stdout.flush()
+            
+            try:
+                # 1. 使用PyJWT解码
+                jwt_payload = jwt.decode(id_token, options={"verify_signature": False})
+                sys.stdout.write(f"JWT解析成功: {jwt_payload}\n")
+            except Exception as jwt_error:
+                sys.stdout.write(f"PyJWT解析失败: {str(jwt_error)}\n")
+                
+                try:
+                    # 2. 尝试手动解析Base64部分
+                    import base64
+                    token_parts = id_token.split('.')
+                    if len(token_parts) >= 2:
+                        # 处理填充
+                        payload = token_parts[1]
+                        payload += '=' * (4 - len(payload) % 4) if len(payload) % 4 else ''
+                        decoded = base64.b64decode(payload)
+                        jwt_payload = json.loads(decoded)
+                        sys.stdout.write(f"手动解析JWT成功: {jwt_payload}\n")
+                    else:
+                        raise Exception("JWT格式无效")
+                except Exception as manual_error:
+                    sys.stdout.write(f"手动解析JWT也失败: {str(manual_error)}\n")
+                    sys.stdout.flush()
+                    return Response(api_response(
+                        code=400,
+                        message=f'解析苹果ID令牌失败: {str(jwt_error)}',
+                        data=None
+                    ), status=status.HTTP_400_BAD_REQUEST)
             
             # 获取用户标识符
             user_id = jwt_payload.get('sub')
             if not user_id:
-                print("错误: 未获取到用户标识符")
+                sys.stdout.write("错误: 未获取到用户标识符\n")
+                sys.stdout.flush()
                 return Response(api_response(
                     code=400,
                     message='苹果登录失败: 未获取到用户标识符',
@@ -489,55 +543,67 @@ class SocialLoginView(APIView):
             
             # 获取邮箱和姓名
             email = jwt_payload.get('email', '')
-            print(f"用户邮箱: {email}")
+            sys.stdout.write(f"用户邮箱: {email}\n")
+            
+            # 记录请求中的所有字段用于调试
+            sys.stdout.write(f"请求体中的所有字段: {self.request.data}\n")
+            sys.stdout.flush()
             
             # 用户名可能在请求体的user字段中
             user_data = {}
-            print(f"检查请求体中的user字段: {repr(request.data.get('user'))}")
-            
-            if 'user' in request.data:
+            if 'user' in self.request.data:
                 try:
-                    user_info_str = request.data['user']
-                    print(f"User info string type: {type(user_info_str)}")
-                    print(f"User info string: {user_info_str}")
+                    user_info = self.request.data['user']
                     
-                    # 如果是字符串，尝试解析为JSON
-                    if isinstance(user_info_str, str):
-                        user_info = json.loads(user_info_str)
-                    else:
-                        user_info = user_info_str
+                    # 处理可能的字符串或对象
+                    if isinstance(user_info, str):
+                        try:
+                            user_info = json.loads(user_info)
+                            sys.stdout.write(f"成功将user字段从字符串解析为JSON: {user_info}\n")
+                        except json.JSONDecodeError:
+                            sys.stdout.write(f"无法解析user字符串: {user_info}\n")
                     
-                    print(f"Parsed user info: {user_info}")
-                    
+                    # 处理可能的各种格式的name字段
                     name = user_info.get('name', {})
-                    print(f"Name field: {name}")
+                    sys.stdout.write(f"解析到的name字段: {name}, 类型: {type(name)}\n")
                     
+                    nickname = ""
                     if isinstance(name, dict):
                         first_name = name.get('firstName', '')
                         last_name = name.get('lastName', '')
                         nickname = f"{first_name} {last_name}".strip()
-                        user_data = {
-                            'name': nickname,
-                            'email': email
-                        }
-                        print(f"成功解析用户信息: nickname={nickname}, email={email}")
-                    else:
-                        user_data = {
-                            'name': str(name) if name else 'Apple User',
-                            'email': email
-                        }
-                        print(f"使用简单名称: name={name}, email={email}")
+                    elif isinstance(name, str):
+                        nickname = name
+                    
+                    if not nickname:
+                        nickname = "Apple User"
+                    
+                    user_data = {
+                        'name': nickname,
+                        'email': email
+                    }
+                    sys.stdout.write(f"最终用户数据: {user_data}\n")
                 except Exception as e:
-                    print(f"解析用户信息失败: {str(e)}")
+                    sys.stdout.write(f"解析用户信息时发生异常: {str(e)}\n")
+                    sys.stdout.write(traceback.format_exc())
                     # 使用默认值
                     user_data = {
                         'name': 'Apple User',
                         'email': email
                     }
-                    print(f"使用默认值: {user_data}")
+            else:
+                sys.stdout.write("请求体中没有user字段\n")
+                user_data = {
+                    'name': 'Apple User',
+                    'email': email
+                }
+            
+            sys.stdout.flush()
             
             # 查找或创建用户
-            print(f"准备创建或查找用户: id={user_id}, email={email}")
+            sys.stdout.write(f"准备创建或查找用户: id={user_id}, email={email}\n")
+            sys.stdout.flush()
+            
             return self._get_or_create_user(
                 provider=provider,
                 provider_user_id=user_id,
@@ -551,25 +617,19 @@ class SocialLoginView(APIView):
                 avatar=''  # 苹果不提供头像
             )
         except requests.RequestException as e:
-            print(f"网络请求错误: {str(e)}")
+            sys.stdout.write(f"网络请求错误: {str(e)}\n")
+            sys.stdout.write(traceback.format_exc())
+            sys.stdout.flush()
             error_msg = f"与苹果服务器通信失败: {str(e)}"
             return Response(api_response(
                 code=500,
                 message=error_msg,
                 data=None
             ), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        except jwt.PyJWTError as e:
-            print(f"JWT解析错误: {str(e)}")
-            error_msg = f"解析苹果ID令牌失败(JWT错误): {str(e)}"
-            return Response(api_response(
-                code=400,
-                message=error_msg,
-                data=None
-            ), status=status.HTTP_400_BAD_REQUEST) 
         except Exception as e:
-            print(f"处理苹果登录时出现未预期的错误: {str(e)}")
-            import traceback
-            print(traceback.format_exc())
+            sys.stdout.write(f"处理苹果登录时出现未预期的错误: {str(e)}\n")
+            sys.stdout.write(traceback.format_exc())
+            sys.stdout.flush()
             error_msg = f"苹果登录处理失败: {str(e)}"
             return Response(api_response(
                 code=500,
