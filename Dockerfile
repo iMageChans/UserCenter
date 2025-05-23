@@ -57,6 +57,9 @@ RUN touch UserCenter/settings/__init__.py
 # 收集静态文件
 RUN python manage.py collectstatic --noinput
 
+# 创建日志目录并设置权限
+RUN mkdir -p /app/logs && chmod -R 755 /app/logs
+
 # 暴露端口
 EXPOSE 8001
 

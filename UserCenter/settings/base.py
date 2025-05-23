@@ -8,6 +8,9 @@ from django.core.exceptions import ImproperlyConfigured
 import environ
 from django.utils.translation import gettext_lazy as _
 
+# 导入日志配置
+from ..logging_config import LOGGING
+
 # 初始化环境变量
 env = environ.Env()
 
@@ -180,40 +183,7 @@ EMAIL_USE_TLS = env.bool('EMAIL_USE_TLS', default=True)
 DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default=EMAIL_HOST_USER)
 
 # 日志设置
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'formatters': {
-        'verbose': {
-            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
-            'style': '{',
-        },
-        'simple': {
-            'format': '{levelname} {message}',
-            'style': '{',
-        },
-    },
-    'handlers': {
-        'console': {
-            'level': 'INFO',
-            'class': 'logging.StreamHandler',
-            'formatter': 'verbose'
-        },
-        'file': {
-            'level': 'INFO',
-            'class': 'logging.FileHandler',
-            'filename': os.path.join(BASE_DIR, 'logs/django.log'),
-            'formatter': 'verbose',
-        },
-    },
-    'loggers': {
-        'django': {
-            'handlers': ['console', 'file'],
-            'level': 'INFO',
-            'propagate': True,
-        },
-    },
-}
+# 注意：不要在这里定义 LOGGING，因为它已经从 logging_config.py 导入了
 
 # 自定义用户模型
 AUTH_USER_MODEL = 'user.User'
