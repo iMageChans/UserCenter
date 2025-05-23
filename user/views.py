@@ -400,6 +400,10 @@ class SocialLoginView(APIView):
     def handle_apple_login(self, provider, code, redirect_uri=None):
         """处理苹果登录"""
         request = self.request  # 从类实例获取 request
+        
+        # 记录输入参数，帮助调试
+        logger.info(f"Apple login attempt with: code={code[:10]}..., redirect_uri={redirect_uri}")
+        
         # 获取访问令牌
         token_url = 'https://appleid.apple.com/auth/token'
         
@@ -418,32 +422,46 @@ class SocialLoginView(APIView):
             'redirect_uri': redirect_uri
         }
         
-        token_response = requests.post(token_url, data=token_data)
-        token_result = token_response.json()
-        
-        if 'error' in token_result:
-            return Response(api_response(
-                code=400,
-                message=f'苹果授权失败: {token_result.get("error_description", token_result["error"])}',
-                data=None
-            ), status=status.HTTP_400_BAD_REQUEST)
-        
-        # 解析ID令牌以获取用户信息
-        id_token = token_result.get('id_token')
-        if not id_token:
-            return Response(api_response(
-                code=400,
-                message='苹果登录失败: 未获取到ID令牌',
-                data=None
-            ), status=status.HTTP_400_BAD_REQUEST)
-        
         try:
+            # 添加更详细的日志记录
+            logger.info(f"Sending request to Apple token URL with client_id={client_id}, redirect_uri={redirect_uri}")
+            
+            token_response = requests.post(token_url, data=token_data)
+            
+            # 记录响应状态和详情
+            logger.info(f"Apple token response status: {token_response.status_code}")
+            logger.debug(f"Apple token response content: {token_response.text[:500]}")
+            
+            token_result = token_response.json()
+            
+            if 'error' in token_result:
+                error_msg = f"苹果授权失败: {token_result.get('error_description', token_result['error'])}"
+                logger.error(error_msg)
+                return Response(api_response(
+                    code=400,
+                    message=error_msg,
+                    data=None
+                ), status=status.HTTP_400_BAD_REQUEST)
+            
+            # 解析ID令牌以获取用户信息
+            id_token = token_result.get('id_token')
+            if not id_token:
+                logger.error("苹果登录失败: 未获取到ID令牌")
+                return Response(api_response(
+                    code=400,
+                    message='苹果登录失败: 未获取到ID令牌',
+                    data=None
+                ), status=status.HTTP_400_BAD_REQUEST)
+            
             # 解码JWT但不验证签名
+            logger.info("正在解析ID令牌")
             jwt_payload = jwt.decode(id_token, options={"verify_signature": False})
+            logger.debug(f"JWT payload: {jwt_payload}")
             
             # 获取用户标识符
             user_id = jwt_payload.get('sub')
             if not user_id:
+                logger.error("苹果登录失败: 未获取到用户标识符")
                 return Response(api_response(
                     code=400,
                     message='苹果登录失败: 未获取到用户标识符',
@@ -457,7 +475,9 @@ class SocialLoginView(APIView):
             user_data = {}
             if 'user' in request.data:
                 try:
-                    user_info = json.loads(request.data['user'])
+                    user_info_str = request.data['user']
+                    logger.debug(f"User info string: {user_info_str}")
+                    user_info = json.loads(user_info_str)
                     name = user_info.get('name', {})
                     first_name = name.get('firstName', '')
                     last_name = name.get('lastName', '')
@@ -466,8 +486,22 @@ class SocialLoginView(APIView):
                         'name': nickname,
                         'email': email
                     }
-                except (json.JSONDecodeError, TypeError):
-                    pass
+                    logger.info(f"成功解析用户信息: nickname={nickname}, email={email}")
+                except (json.JSONDecodeError, TypeError) as e:
+                    logger.error(f"解析用户信息失败: {str(e)}")
+                    # 尝试直接使用user字段的值，可能已是字典
+                    if isinstance(request.data.get('user'), dict):
+                        user_info = request.data['user']
+                        name = user_info.get('name', {})
+                        if isinstance(name, dict):
+                            first_name = name.get('firstName', '')
+                            last_name = name.get('lastName', '')
+                            nickname = f"{first_name} {last_name}".strip()
+                            user_data = {
+                                'name': nickname,
+                                'email': email
+                            }
+                            logger.info(f"直接使用字典解析成功: nickname={nickname}, email={email}")
             
             # 查找或创建用户
             return self._get_or_create_user(
@@ -482,13 +516,30 @@ class SocialLoginView(APIView):
                 nickname=user_data.get('name', 'username'),
                 avatar=''  # 苹果不提供头像
             )
-        except Exception as e:
-            logger.exception("解析苹果ID令牌失败")
+        except requests.RequestException as e:
+            error_msg = f"与苹果服务器通信失败: {str(e)}"
+            logger.exception(error_msg)
+            return Response(api_response(
+                code=500,
+                message=error_msg,
+                data=None
+            ), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        except jwt.PyJWTError as e:
+            error_msg = f"解析苹果ID令牌失败(JWT错误): {str(e)}"
+            logger.exception(error_msg)
             return Response(api_response(
                 code=400,
-                message=f'解析苹果ID令牌失败: {str(e)}',
+                message=error_msg,
                 data=None
-            ), status=status.HTTP_400_BAD_REQUEST)
+            ), status=status.HTTP_400_BAD_REQUEST) 
+        except Exception as e:
+            error_msg = f"苹果登录处理失败: {str(e)}"
+            logger.exception(error_msg)
+            return Response(api_response(
+                code=500,
+                message=error_msg,
+                data=None
+            ), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def _generate_apple_client_secret(self, provider):
         """生成苹果客户端密钥"""
@@ -499,23 +550,35 @@ class SocialLoginView(APIView):
             key_id = provider.key_id
             private_key = provider.private_key
             
+            # 记录关键参数（不包含敏感信息）
+            logger.info(f"生成Apple客户端密钥: team_id={team_id}, client_id={client_id}, key_id={key_id}")
+            
             # 如果没有直接提供私钥，尝试从文件读取
             if not private_key and provider.private_key_path:
                 try:
+                    logger.info(f"从文件读取私钥: {provider.private_key_path}")
                     private_key = provider.private_key_path.read().decode('utf-8')
                 except Exception as e:
                     logger.error(f"读取苹果私钥文件失败: {str(e)}")
                     raise ValueError(f"读取苹果私钥文件失败: {str(e)}")
             
             if not all([team_id, client_id, key_id, private_key]):
-                raise ValueError("苹果登录配置不完整")
+                missing = []
+                if not team_id: missing.append('team_id')
+                if not client_id: missing.append('client_id')
+                if not key_id: missing.append('key_id')
+                if not private_key: missing.append('private_key')
+                error_msg = f"苹果登录配置不完整，缺少: {', '.join(missing)}"
+                logger.error(error_msg)
+                raise ValueError(error_msg)
             
             # 生成JWT
             now = int(time.time())
             expiry = now + 86400 * 180  # 180天
             
             headers = {
-                'kid': key_id
+                'kid': key_id,
+                'alg': 'ES256'  # 显式指定算法
             }
             
             payload = {
@@ -527,9 +590,12 @@ class SocialLoginView(APIView):
             }
             
             # 生成并返回JWT
-            return jwt.encode(payload, private_key, algorithm='ES256', headers=headers)
+            logger.info("正在生成JWT客户端密钥")
+            client_secret = jwt.encode(payload, private_key, algorithm='ES256', headers=headers)
+            logger.info("JWT客户端密钥生成成功")
+            return client_secret
         except Exception as e:
-            logger.exception("生成苹果客户端密钥失败")
+            logger.exception(f"生成苹果客户端密钥失败: {str(e)}")
             raise ValueError(f"生成苹果客户端密钥失败: {str(e)}")
     
     def _get_or_create_user(self, provider, provider_user_id, access_token, refresh_token, expires_in, user_data, username, email, nickname, avatar):
